@@ -102,7 +102,7 @@ class NanoMouseMotors
     // R = 2000 -> ff  1750 -> f   ||   1250 -> b   1000 -> bb
     void forwardProportional(int error)
     {
-      const byte kp = 1.5;
+      const byte kp = 1.4;
 
 // aiming right. error = 140
 //leftPower: 1530 / rightPower: 2045 

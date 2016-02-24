@@ -3,10 +3,14 @@
 #include "NanoMouseMotors.h"
 #include "NanoMouseSensors.h"
 
+int durationPerField = 1900; // duration in ms spent to travel one field in the maze at average speed
+
 const byte ledPin = 13;
 const byte buttonPin = 9;
 
 int targetFront;
+int thresholdFront;
+
 int targetSide; // govern distance from wall
 int thresholdSide; // help to determine if a wall exist (if lower, not a lot of refl. no wall)
 
@@ -35,11 +39,10 @@ void setup()
   calibrate();
   Serial.print("Calibrate done. targetFront = "); Serial.println( targetFront );
   Serial.println("");
-  
-  forwardWhiskers();
-  motors.turn(RIGHT, 90);
-  sensors.initialize();
 
+
+
+  // hard coded for known maze:
   forwardWhiskers();
   motors.turn(RIGHT, 90);
   sensors.initialize();
@@ -53,7 +56,7 @@ void setup()
   sensors.initialize();
 
   forwardWhiskers();
-  motors.turn(LEFT, 90);
+  // motors.turn(LEFT, 90);
   sensors.initialize();
 
   forwardWhiskers();
@@ -61,7 +64,19 @@ void setup()
   sensors.initialize();
 
   forwardWhiskers();
-  motors.turn(RIGHT, 90);
+  // motors.turn(LEFT, 90);
+  sensors.initialize();
+
+  forwardWhiskers();
+  motors.turn(LEFT, 90);
+  sensors.initialize();
+
+  forwardWhiskers();
+  motors.turn(LEFT, 90);
+  sensors.initialize();
+
+  forwardWhiskers();
+  // motors.turn(LEFT, 90);
   sensors.initialize();
 
 }
@@ -70,18 +85,12 @@ void loop() {
   // put your main code here, to run repeatedly:
   //digitalWrite(ledPin, HIGH);
 
-  /*
-    sensors.sense();
-    Serial.print("S-R: "); Serial.print( sensors.right );
-    Serial.print(" / S-L: "); Serial.print( sensors.left );
-    int error = sensors.right - sensors.left;
-    Serial.print("    -> error: "); Serial.println( error );
-  */
-
-
-  // byte st = state();
-  // Serial.print("State: "); Serial.println( st );
+  byte st = state();
+  Serial.print("State: "); Serial.println( st );
   // avoid( st );
+
+  // navigateLabyrinth( st );
+  
 }
 
 void calibrate()
@@ -112,11 +121,18 @@ void calibrate()
 
   motors.turn(LEFT, 90);
   sensors.initialize();
+
+  // original /2 . with darker surrounding light /4.
+  thresholdFront = (targetFront + sensors.front) / 4; // value for wall, and average with ambient value of current front sensor
+
 }
 
 void forwardWhiskers()
 {
-  while ( sensors.front < targetFront )
+
+  unsigned long startingTime = millis();
+  
+  while ( sensors.front < targetFront && millis() - startingTime < durationPerField )
   {
     sensors.sense();
 
@@ -155,18 +171,17 @@ void forwardWhiskers()
 
 byte state()
 {
-  int threshold = 30;
   byte event = 0;
 
   sensors.sense();
 
-  if ( sensors.front > threshold )
+  if ( sensors.front > thresholdFront )
     event += 1;
 
-  if ( sensors.left > threshold )
+  if ( sensors.left > thresholdSide )
     event += 2;
 
-  if ( sensors.right > threshold )
+  if ( sensors.right > thresholdSide )
     event += 4;
 
   return event;
@@ -215,6 +230,52 @@ void avoid(byte event)
     default:
       motors.forward();
       break;
+  }
+}
+
+void navigateLabyrinth(byte event)
+{
+  switch(event)
+  {
+    case 0:
+      digitalWrite(ledPin, HIGH);
+      delay(1000);
+      digitalWrite(ledPin, LOW);
+      delay(1000);
+      break;
+    case 1:
+      digitalWrite(ledPin, HIGH);
+      delay(500);
+      digitalWrite(ledPin, LOW);
+      delay(500);
+      break;
+    
+    case 2:
+      forwardWhiskers();
+      break;
+
+    case 3:
+      motors.turn(RIGHT, 90);
+      sensors.initialize();
+      break;
+
+    case 4:
+      forwardWhiskers();
+      break;
+
+    case 5:
+      motors.turn(LEFT, 90);
+      sensors.initialize();
+      break;
+
+    case 6:
+      forwardWhiskers();
+      break;
+
+    case 7:
+      digitalWrite(ledPin, HIGH);
+      break;
+      
   }
 }
 
