@@ -2,6 +2,7 @@
 #include <Servo.h>
 #include "NanoMouseMotors.h"
 #include "NanoMouseSensors.h"
+#include "NanoMouseMaze.h"
 
 int durationPerField = 1900; // duration in ms spent to travel one field in the maze at average speed
 
@@ -19,6 +20,7 @@ NanoMouseMotors motors;
 // <leftEm, leftDet, frontEm, ... >
 NanoMouseSensors<4, A7, 3, A6, 2, A5> sensors;
 
+NanoMouseMaze<4, 6> maze;
 
 void setup()
 {
@@ -30,54 +32,27 @@ void setup()
 
   sensors.configure();
 
+  maze.mouseRow = 3;
+  maze.mouseColumn = 0;
+  maze.mouseHeading = NORTH;
+
+  maze.targetRow = 2;
+  maze.targetColumn = 4;
+
   Serial.begin(9600);
 
   while ( digitalRead( buttonPin ) )
   {}
   delay(500);
 
-  calibrate();
-  Serial.print("Calibrate done. targetFront = "); Serial.println( targetFront );
-  Serial.println("");
+  // calibrate();
+  //Serial.print("Calibrate done. targetFront = "); Serial.println( targetFront );
+  //Serial.println("");
 
-
-
-  // hard coded for known maze:
-  forwardWhiskers();
-  motors.turn(RIGHT, 90);
-  sensors.initialize();
-
-  forwardWhiskers();
-  motors.turn(RIGHT, 90);
-  sensors.initialize();
-
-  forwardWhiskers();
-  motors.turn(LEFT, 90);
-  sensors.initialize();
-
-  forwardWhiskers();
-  // motors.turn(LEFT, 90);
-  sensors.initialize();
-
-  forwardWhiskers();
-  motors.turn(LEFT, 90);
-  sensors.initialize();
-
-  forwardWhiskers();
-  // motors.turn(LEFT, 90);
-  sensors.initialize();
-
-  forwardWhiskers();
-  motors.turn(LEFT, 90);
-  sensors.initialize();
-
-  forwardWhiskers();
-  motors.turn(LEFT, 90);
-  sensors.initialize();
-
-  forwardWhiskers();
-  // motors.turn(LEFT, 90);
-  sensors.initialize();
+  maze.addWalls(EAST);
+  maze.solve();
+  maze.print();
+  //Serial.println(maze.findBestNeighbor());
 
 }
 
@@ -85,12 +60,12 @@ void loop() {
   // put your main code here, to run repeatedly:
   //digitalWrite(ledPin, HIGH);
 
-  byte st = state();
-  Serial.print("State: "); Serial.println( st );
+  //byte st = state();
+  // Serial.print("State: "); Serial.println( st );
   // avoid( st );
 
   // navigateLabyrinth( st );
-  
+
 }
 
 void calibrate()
@@ -110,14 +85,14 @@ void calibrate()
   //                   <               ... there is no wall
   thresholdSide = ( targetSide + sensors.left ) / 2 ;
 
-/*
- * If robot does not appear to detect walls consistently, we could replace 
- * the average between the target and ambient values used in the previous 
- * lecture with values that are weighted towards the ambient values.
- * For example, if the side sensors miss walls on occasion, try calculating 
- * the threshold value for the side sensors as follows:
-       thresholdSide = (targetSide + 2*sensors.left)/3;
- */
+  /*
+     If robot does not appear to detect walls consistently, we could replace
+     the average between the target and ambient values used in the previous
+     lecture with values that are weighted towards the ambient values.
+     For example, if the side sensors miss walls on occasion, try calculating
+     the threshold value for the side sensors as follows:
+         thresholdSide = (targetSide + 2*sensors.left)/3;
+  */
 
   motors.turn(LEFT, 90);
   sensors.initialize();
@@ -131,7 +106,7 @@ void forwardWhiskers()
 {
 
   unsigned long startingTime = millis();
-  
+
   while ( sensors.front < targetFront && millis() - startingTime < durationPerField )
   {
     sensors.sense();
@@ -145,13 +120,13 @@ void forwardWhiskers()
     }
     // check if wall on right side only. not on left side.
     // -> since we have no left one. we use the "targetSide" which stores what a value for a wall should be like
-    else if( sensors.right > thresholdSide )
+    else if ( sensors.right > thresholdSide )
     {
       int error = sensors.right - targetSide;
       motors.forwardProportional( error );
       sensors.initialize();
     }
-    else if( sensors.left > thresholdSide )
+    else if ( sensors.left > thresholdSide )
     {
       int error = targetSide - sensors.left;
       motors.forwardProportional( error );
@@ -162,7 +137,7 @@ void forwardWhiskers()
     }
 
     Serial.print("S-F: "); Serial.println( sensors.front );
-    
+
     sensors.sense();
   }
 
@@ -235,7 +210,7 @@ void avoid(byte event)
 
 void navigateLabyrinth(byte event)
 {
-  switch(event)
+  switch (event)
   {
     case 0:
       digitalWrite(ledPin, HIGH);
@@ -249,7 +224,7 @@ void navigateLabyrinth(byte event)
       digitalWrite(ledPin, LOW);
       delay(500);
       break;
-    
+
     case 2:
       forwardWhiskers();
       break;
@@ -275,10 +250,8 @@ void navigateLabyrinth(byte event)
     case 7:
       digitalWrite(ledPin, HIGH);
       break;
-      
+
   }
 }
-
-
 
 
