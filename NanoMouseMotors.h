@@ -1,4 +1,6 @@
 
+#define DEBUG
+
 #include <Arduino.h>
 #include <Servo.h>
 
@@ -104,26 +106,19 @@ class NanoMouseMotors
     {
       const byte kp = 1.4;
 
-// aiming right. error = 140
-//leftPower: 1530 / rightPower: 2045 
-
-// aiming left. error = -100
-//leftPower: 1064 / rightPower: 1579 
-
-
       // e.g. error = 400 .. close to right wall. i want to steer left. means more right power
       // -> lP = 1500 - 250 - 2*400 = 1250 + 800 = 2050 .. l backw   for error > 0 :  values can be within [1250, 3000]  -> more b
       // -> rP = 1500 + 250 + 2*400 = 1750 + 800 = 2550 .. r forward
 
       int leftPower  = maxL( 1500 - power + kp * error );
       int rightPower = maxR( 1500 + power * 1.06 + kp * error );
+#ifdef DEBUG
       Serial.print("leftPower: "); Serial.print( leftPower );
       Serial.print(" / rightPower: "); Serial.println( rightPower );
-
+      Serial.println(" ");
+#endif      
       leftServo.writeMicroseconds(leftPower);
       rightServo.writeMicroseconds(rightPower);
-
-      Serial.println(" ");
       
     }
 

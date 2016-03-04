@@ -1,4 +1,8 @@
 
+// WIFI: https://www.youtube.com/watch?v=ylyS29DC8xY
+
+#define DEBUG
+
 #include <Servo.h>
 #include "NanoMouseMotors.h"
 #include "NanoMouseSensors.h"
@@ -20,7 +24,7 @@ NanoMouseMotors motors;
 // <leftEm, leftDet, frontEm, ... >
 NanoMouseSensors<4, A7, 3, A6, 2, A5> sensors;
 
-NanoMouseMaze<4, 6> maze;
+NanoMouseMaze<3, 4> maze;
 
 void setup()
 {
@@ -32,12 +36,12 @@ void setup()
 
   sensors.configure();
 
-  maze.mouseRow = 3;
+  maze.mouseRow = 2;
   maze.mouseColumn = 0;
   maze.mouseHeading = NORTH;
 
-  maze.targetRow = 2;
-  maze.targetColumn = 4;
+  maze.targetRow = 1;
+  maze.targetColumn = 2;
 
   Serial.begin(9600);
 
@@ -45,27 +49,44 @@ void setup()
   {}
   delay(500);
 
-  // calibrate();
-  //Serial.print("Calibrate done. targetFront = "); Serial.println( targetFront );
-  //Serial.println("");
+  calibrate();
+#ifdef DEBUG
+  Serial.print("Calibrate done. targetFront = "); Serial.print( targetFront );
+  Serial.print(" / thresholdFront = "); Serial.print( thresholdFront );
+  Serial.print(" / targetSide = "); Serial.print( targetSide );
+  Serial.print(" / thresholdSide = "); Serial.println( thresholdSide );
+#endif
 
-  maze.addWalls(EAST);
+  do
+  {
+    sensors.initialize();
+    scanWalls();
+
+    maze.solve();
+
+#ifdef DEBUG
+    maze.print();
+    while ( digitalRead(buttonPin) )
+    {}
+    delay(500);
+#endif
+
+    turnTowardBestNeighbor();
+
+    forwardWhiskers();
+  } while ( maze.values[maze.mouseRow][maze.mouseColumn] != 0 );
+
+#ifdef DEBUG
+  scanWalls();
   maze.solve();
   maze.print();
-  //Serial.println(maze.findBestNeighbor());
+#endif
 
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
   //digitalWrite(ledPin, HIGH);
-
-  //byte st = state();
-  // Serial.print("State: "); Serial.println( st );
-  // avoid( st );
-
-  // navigateLabyrinth( st );
-
 }
 
 void calibrate()
@@ -110,7 +131,11 @@ void forwardWhiskers()
   while ( sensors.front < targetFront && millis() - startingTime < durationPerField )
   {
     sensors.sense();
-
+#ifdef DEBUG
+    Serial.print("FW -- S-F: "); Serial.print( sensors.front );
+    Serial.print(" / S-R: "); Serial.print( sensors.right );
+    Serial.print(" / S-L: "); Serial.println( sensors.left );
+#endif
     // check if walls on both sides of robot.
     if ( sensors.left > thresholdSide && sensors.right > thresholdSide )
     {
@@ -136,122 +161,50 @@ void forwardWhiskers()
       motors.forward();
     }
 
-    Serial.print("S-F: "); Serial.println( sensors.front );
-
     sensors.sense();
   }
 
   motors.stop();
+
+  // update mouse position after movement
+  maze.mouseRow += neighborCells[maze.mouseHeading][0];
+  maze.mouseColumn += neighborCells[maze.mouseHeading][1];
 }
 
-byte state()
+void scanWalls()
 {
-  byte event = 0;
-
-  sensors.sense();
-
+#ifdef DEBUG  
+  Serial.println("");
+  Serial.print("SW -- S-F = "); Serial.print( sensors.front );
+  Serial.print(" / S-R = "); Serial.print( sensors.right );
+  Serial.print(" / S-L = "); Serial.println( sensors.left );
+#endif
   if ( sensors.front > thresholdFront )
-    event += 1;
-
-  if ( sensors.left > thresholdSide )
-    event += 2;
+    maze.addWalls( maze.mouseHeading );
 
   if ( sensors.right > thresholdSide )
-    event += 4;
+    maze.addWalls( (maze.mouseHeading + 1) % 4 );
 
-  return event;
+  if ( sensors.left > thresholdSide )
+    maze.addWalls( (maze.mouseHeading + 3) % 4 );
 }
 
-void avoid(byte event)
+void turnTowardBestNeighbor()
 {
-  switch (event)
-  {
-    case 1: // front sensor is triggered
-      // if( random(2) ) ..
-      motors.turn( LEFT, 90 ); // motors.turn( LEFT, random(90, 181) );
-      sensors.initialize();
-      break;
+  byte desiredHeading = maze.findBestNeighbor();
+  int difference = maze.mouseHeading - desiredHeading;
 
-    case 2: // left sensor is triggered
-      motors.turn( RIGHT, 45 );
-      sensors.initialize();
-      break;
+  // e.g, if mouse points to EAST (1) and best neighbor is NORTH (0)
+  //      -> difference = 1 -> turn left
+  if ( difference == 1 || difference == -3 )
+    motors.turn( LEFT, 90 );
+  else if ( difference == 3 || difference == -1 )
+    motors.turn( RIGHT, 90 );
+  else if ( difference == 2 || difference == -2 )
+    motors.turn( RIGHT, 180 );
 
-    case 3: // front & left sensor is triggered
-      motors.turn( RIGHT, 45 );
-      sensors.initialize();
-      break;
-
-    case 4: // right sensor is triggered
-      motors.turn( LEFT, 45 );
-      sensors.initialize();
-      break;
-
-    case 5: // front & right sensor is triggered
-      motors.turn( LEFT, 45 );
-      sensors.initialize();
-      break;
-
-    case 6: // left & right sensor is triggered
-      motors.turn( LEFT, 180 );
-      sensors.initialize();
-      break;
-
-    case 7: // left & right & front sensor is triggered
-      motors.turn( LEFT, 180 );
-      sensors.initialize();
-      break;
-
-    default:
-      motors.forward();
-      break;
-  }
-}
-
-void navigateLabyrinth(byte event)
-{
-  switch (event)
-  {
-    case 0:
-      digitalWrite(ledPin, HIGH);
-      delay(1000);
-      digitalWrite(ledPin, LOW);
-      delay(1000);
-      break;
-    case 1:
-      digitalWrite(ledPin, HIGH);
-      delay(500);
-      digitalWrite(ledPin, LOW);
-      delay(500);
-      break;
-
-    case 2:
-      forwardWhiskers();
-      break;
-
-    case 3:
-      motors.turn(RIGHT, 90);
-      sensors.initialize();
-      break;
-
-    case 4:
-      forwardWhiskers();
-      break;
-
-    case 5:
-      motors.turn(LEFT, 90);
-      sensors.initialize();
-      break;
-
-    case 6:
-      forwardWhiskers();
-      break;
-
-    case 7:
-      digitalWrite(ledPin, HIGH);
-      break;
-
-  }
+  sensors.initialize();
+  maze.mouseHeading = desiredHeading;
 }
 
 

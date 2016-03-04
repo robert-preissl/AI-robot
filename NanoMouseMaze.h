@@ -1,3 +1,6 @@
+
+#define DEBUG
+
 #include <Arduino.h>
 
 #define NORTH 0
@@ -155,6 +158,10 @@ class NanoMouseMaze
 
     void addWalls( byte cardinalDirection )
     {
+#ifdef DEBUG
+      Serial.println(""); 
+      Serial.print("AW -- cardinalDirection = "); Serial.println( cardinalDirection );
+#endif
       switch( cardinalDirection )
       {
         case NORTH:
@@ -164,7 +171,7 @@ class NanoMouseMaze
           verticalWalls[mouseRow][mouseColumn + 1] = true;
           break;
         case SOUTH:
-          verticalWalls[mouseRow + 1][mouseColumn] = true;
+          horizontalWalls[mouseRow + 1][mouseColumn] = true;
           break;
         case WEST:
           verticalWalls[mouseRow][mouseColumn] = true;
